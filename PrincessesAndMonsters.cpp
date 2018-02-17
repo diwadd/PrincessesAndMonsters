@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <cassert>
+#include <algorithm>
 
 using namespace std;
 
@@ -133,8 +134,12 @@ class GameState {
         vector<Knight> f_knights;
         vector<Princess> f_princesses;
         vector<Monster> f_monsters;
-
         vector<KnightGroup> f_knight_group_collection;
+
+        string current_order_name;
+        string current_order_instructions;
+
+        pair<int, int> global_assembly_point;
 
 
         GameState() {}
@@ -148,12 +153,20 @@ class GameState {
         void print_monsters();
 
         void set_knights(int &k);
+        void update_knight_positions(pair<int, int> &pos);
         void print_knights();
 
 
         pair<int, int> _determine_the_number_of_groups();
         void make_groups();
         void print_groups();
+
+
+        pair<int, int> princess_center_of_mass();
+        char princess_cm_closest_entrence(pair<int, int> &cm);
+
+
+        string move_towards_point(pair<int, int> &point);
 
 };
 
@@ -165,8 +178,8 @@ void GameState::set_princesses(vector<int> &pr) {
     f_n_princesses = n/2;
     f_princesses.resize( n/2 );
     for(int i = 0; i < n/2; i++) {
-        f_princesses[i].f_last_x = pr[2*i];
-        f_princesses[i].f_last_y = pr[2*i + 1];
+        f_princesses[i].f_last_x = pr[2*i + 1];
+        f_princesses[i].f_last_y = pr[2*i];
     }
 }
 
@@ -177,8 +190,8 @@ void GameState::set_monsters(vector<int> &mo) {
     f_n_monsters = n/2;
     f_monsters.resize( n/2 );
     for(int i = 0; i < n/2; i++) {
-        f_monsters[i].f_last_x = mo[2*i];
-        f_monsters[i].f_last_y = mo[2*i + 1];
+        f_monsters[i].f_last_x = mo[2*i + 1];
+        f_monsters[i].f_last_y = mo[2*i];
     }
 }
 
@@ -203,6 +216,14 @@ void GameState::set_knights(int &k) {
 
 }
 
+void GameState::update_knight_positions(pair<int, int> &pos) {
+
+    for(int i = 0; i < f_n_knights; i++) {
+        f_knights[i].f_x = pos.first;
+        f_knights[i].f_y = pos.second;
+    }
+}
+
 void GameState::print_knights() {
     for(int i = 0; i < f_knights.size(); i++)
         cerr << "Knight id: " << i << ": " << f_knights[i] << endl;
@@ -213,7 +234,7 @@ pair<int, int> GameState::_determine_the_number_of_groups() {
     // monster_p - probability of meeting a monster
     //double monster_p = f_n_monsters / (f_S*f_S);
 
-    int min_number_of_knights_in_group = 3;
+    int min_number_of_knights_in_group = f_n_knights;
     int number_of_groups = int(f_n_knights/min_number_of_knights_in_group);
 
     fprintf(stderr, "min_number_of_knights_in_group: %d\n", min_number_of_knights_in_group);
@@ -275,6 +296,139 @@ void GameState::print_groups() {
 
 }
 
+
+pair<int, int> GameState::princess_center_of_mass() {
+
+    int x_cm = 0;
+    int y_cm = 0;
+
+    for(int i = 0; i < f_n_princesses; i++) {
+        x_cm = x_cm + f_princesses[i].f_last_x;
+        y_cm = y_cm + f_princesses[i].f_last_y;
+    }
+
+    x_cm = x_cm/f_n_princesses;
+    y_cm = y_cm/f_n_princesses;
+
+    fprintf(stderr, "Princess center of mass (x_cm, y_cm): (%d, %d)\n", x_cm, y_cm);
+
+    return make_pair(x_cm, y_cm);
+
+}
+
+char GameState::princess_cm_closest_entrence(pair<int, int> &cm) {
+
+    pair<int, int> top_left = make_pair(0, 0); // 0
+    pair<int, int> top_right = make_pair(f_S-1, 0); // 1
+
+    pair<int, int> bottom_right = make_pair(f_S-1, f_S-1); // 2
+    pair<int, int> bottom_left = make_pair(0, f_S-1); // 3
+
+    
+    int dtl = abs(cm.first - top_left.first) + abs(cm.second - top_left.second);
+    int dtr = abs(cm.first - top_right.first) + abs(cm.second - top_right.second);
+    int dbr = abs(cm.first - bottom_right.first) + abs(cm.second - bottom_right.second);
+    int dbl = abs(cm.first - bottom_left.first) + abs(cm.second - bottom_left.second);
+
+    fprintf(stderr, "Distances to the entrences from the princess center of mass:\n");
+    fprintf(stderr, "dtl: %d\n", dtl);
+    fprintf(stderr, "dtr: %d\n", dtr);
+    fprintf(stderr, "dbl: %d\n", dbl);
+    fprintf(stderr, "dbr: %d\n", dbr);
+
+    vector<int> v = {dtl, dtr, dbr, dbl};
+
+    int d_min = 2500; // Max S = 50 so 2500 is enough.
+    char closest_entrence_index = -1;
+    for(int i = 0; i < v.size(); i++) {
+        if (v[i] < d_min) {
+            d_min = v[i];
+            closest_entrence_index = i;
+        }
+    }
+
+    if (closest_entrence_index == 0)
+        closest_entrence_index = '0';
+    else if (closest_entrence_index == 1)
+        closest_entrence_index = '1';
+    else if (closest_entrence_index == 2)
+        closest_entrence_index = '2';
+    else if (closest_entrence_index == 3)
+        closest_entrence_index = '3';
+    else {
+        assert(false);
+        cerr << "Could not get entrence id!" << endl;    
+    }
+
+    fprintf(stderr, "Distance to closest entrance d_min: %d\n", d_min);
+    fprintf(stderr, "closest_entrence_index: %c\n", closest_entrence_index);
+
+    return closest_entrence_index;
+}
+
+
+string GameState::move_towards_point(pair<int, int> &point) {
+
+    fprintf(stderr, "Moving towards (%d, %d)\n", point.first, point.second);
+    string order = string(f_n_knights, 'X');
+    for(int i = 0; i < f_n_knights; i++) {
+
+        /*
+        int delta_x = point.first - f_knights[i].f_x;
+        int delta_y = point.second - f_knights[i].f_y;
+
+        fprintf(stderr, "delta_x: %d\n", delta_x);
+        fprintf(stderr, "delta_y: %d\n", delta_y);
+
+        if (delta_x > 0) {
+            order[i] = 'W'; // move right
+            f_knights[i].f_x = f_knights[i].f_x + 1;
+            continue;
+        } else if (delta_x < 0) {
+            order[i] = 'E'; // move left
+            f_knights[i].f_x = f_knights[i].f_x - 1;
+            continue;
+        } else if (delta_y > 0) {
+            order[i] = 'S'; //move down
+            f_knights[i].f_y = f_knights[i].f_y + 1;
+            continue;
+        } else if (delta_y < 0) {
+            order[i] = 'N'; //move up
+            f_knights[i].f_y = f_knights[i].f_y - 1;
+            continue;
+        }
+
+        if (delta_x == 0 && delta_y == 0)
+            order[i] = 'R';
+        */
+
+        fprintf(stderr, "point.first: %d; f_knights[i].f_x: %d\n", point.first, f_knights[i].f_x);
+
+        if (point.first > f_knights[i].f_x) {
+            order[i] = 'E'; // move right
+            f_knights[i].f_x = f_knights[i].f_x + 1;
+            continue;
+        } else if (point.first < f_knights[i].f_x) {
+            order[i] = 'W'; // move left
+            f_knights[i].f_x = f_knights[i].f_x - 1;
+            continue;
+        } else if (point.second > f_knights[i].f_y) {
+            order[i] = 'S'; // move left
+            f_knights[i].f_y = f_knights[i].f_y + 1;
+            continue;
+        } else if (point.second < f_knights[i].f_y) {
+            order[i] = 'N'; // move left
+            f_knights[i].f_y = f_knights[i].f_y - 1;
+            continue;
+        }
+
+
+    }
+
+    return order;
+}
+
+
 // --------------------------------------------
 // --------  PrincessesAndMonsters  -----------
 // --------------------------------------------
@@ -326,10 +480,40 @@ string PrincessesAndMonsters::initialize(int S, vector<int> princesses, vector<i
     f_gs.make_groups();
     f_gs.print_groups();
 
+
+    f_gs.global_assembly_point = f_gs.princess_center_of_mass();
+    char closest_entrence_index = f_gs.princess_cm_closest_entrence(f_gs.global_assembly_point);
+
+
+    pair<int, int> ikp = make_pair(0, 0); // initial knights position
+    if (closest_entrence_index == '0') {
+        ikp.first = 0;
+        ikp.second = 0;
+    } else if (closest_entrence_index == '1') {
+        ikp.first = S - 1;
+        ikp.second = 0;
+    } else if (closest_entrence_index == '2') {
+        ikp.first = S - 1;
+        ikp.second = S - 1;
+    } else if (closest_entrence_index == '3') {
+        ikp.first = 0;
+        ikp.second = S - 1;
+    } else {
+        assert(false);
+        cerr << "Unknown entrance!" << endl;
+    }
+
+    f_gs.update_knight_positions(ikp);
+    f_gs.current_order_name = "PRINCESS_CENTER_OF_MASS";
+
+
     srand(1234);
     f_t = -1;
     // all knights start in top left corner
-    return string(K, '0');
+
+    string s = string(K, closest_entrence_index);
+    cerr << "Knight entrences: " << s << endl;
+    return s;
 }
 
 
@@ -339,6 +523,16 @@ string PrincessesAndMonsters::move(vector<int> status, int P, int M, int timeLef
 
     f_turn++;
     fprintf(stderr, "Turn: %d\n", f_turn);
+
+
+    if (f_gs.current_order_name == "PRINCESS_CENTER_OF_MASS") {
+        string order = f_gs.move_towards_point(f_gs.global_assembly_point);
+        cerr << "Current move order: " << order << endl;
+        return order;
+    }
+    
+
+
 
     return string(status.size(), f_t < 3 ? 'E' : f_t < 20 ? 'S' : f_dir[rand() % 4]);
 }
