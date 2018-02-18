@@ -22,8 +22,14 @@ class Knight {
         int f_y;
         int f_n_p; // number of princesses escorted by knight
         int f_g; // the knight belong to group f_g
+        string f_order;
 
-        Knight(int idp = -1, int xp = -1, int yp = -1, int np = 0, int gp = -1): f_id(idp), f_x(xp), f_y(yp), f_n_p(np), f_g(gp) {}
+        Knight(int idp = -1, 
+               int xp = -1,
+               int yp = -1,
+               int np = 0,
+               int gp = -1,
+               string sp = "NONE"): f_id(idp), f_x(xp), f_y(yp), f_n_p(np), f_g(gp), f_order(sp) {}
 };
 
 
@@ -126,6 +132,7 @@ ostream & operator<<(ostream & os, const Monster &p){
 
 class GameState {
     public:
+        string f_moves = "NEWS";
         int f_S; // board size
         int f_turn; // current turn
         int f_n_knights; // number of knights
@@ -136,10 +143,10 @@ class GameState {
         vector<Monster> f_monsters;
         vector<KnightGroup> f_knight_group_collection;
 
-        string current_order_name;
-        string current_order_instructions;
+        string f_current_global_order_name;
+        string f_current_order_instructions;
 
-        pair<int, int> global_assembly_point;
+        pair<int, int> f_global_assembly_point;
 
 
         GameState() {}
@@ -153,9 +160,11 @@ class GameState {
         void print_monsters();
 
         void set_knights(int &k);
-        void update_knight_positions(pair<int, int> &pos);
+        void update_initial_knight_positions(pair<int, int> &pos);
+        void update_knights_number_of_princesses(vector<int> &status);
         void print_knights();
 
+        int get_number_of_escorted_princesses_at_cm(pair<int, int> &cm_point);
 
         pair<int, int> _determine_the_number_of_groups();
         void make_groups();
@@ -167,6 +176,18 @@ class GameState {
 
 
         string move_towards_point(pair<int, int> &point);
+        void move_towards_point(pair<int, int> &point, string &move_order);
+        void move_knight_towards_point(pair<int, int> &point, string &move_order, int &id);
+        bool princess_cm_reached(pair<int, int> &cm_point);
+        bool check_if_knight_reached_princess_cm(pair<int, int> &cm_point, int &id);
+        bool check_if_all_knights_reached_princess_cm(pair<int, int> &cm_point);
+
+        void send_global_order(string &order);
+        void send_order_to_all_knights(string &order);
+        void send_order_to_a_fraction_of_knights(string &order, double &fraction);
+
+        void random_disperse(string &move_order);
+        void check_and_set_princess_escort_during_random_disperse(string &move_order);
 
 };
 
@@ -216,7 +237,7 @@ void GameState::set_knights(int &k) {
 
 }
 
-void GameState::update_knight_positions(pair<int, int> &pos) {
+void GameState::update_initial_knight_positions(pair<int, int> &pos) {
 
     for(int i = 0; i < f_n_knights; i++) {
         f_knights[i].f_x = pos.first;
@@ -224,9 +245,29 @@ void GameState::update_knight_positions(pair<int, int> &pos) {
     }
 }
 
+
+void GameState::update_knights_number_of_princesses(vector<int> &status) {
+
+    for(int i = 0; i < f_n_knights; i++)
+        f_knights[i].f_n_p = status[i];
+}
+
+
 void GameState::print_knights() {
     for(int i = 0; i < f_knights.size(); i++)
         cerr << "Knight id: " << i << ": " << f_knights[i] << endl;
+}
+
+int GameState::get_number_of_escorted_princesses_at_cm(pair<int, int> &cm_point) {
+
+    int n_princesses = 0;
+    for(int i = 0; i < f_n_knights; i++) {
+        if (f_knights[i].f_n_p <= 0)
+            continue;
+        if (f_knights[i].f_x == cm_point.first && f_knights[i].f_y == cm_point.second)
+            n_princesses = n_princesses + f_knights[i].f_n_p;
+    }
+    return n_princesses;
 }
 
 pair<int, int> GameState::_determine_the_number_of_groups() {
@@ -367,67 +408,181 @@ char GameState::princess_cm_closest_entrence(pair<int, int> &cm) {
 }
 
 
-string GameState::move_towards_point(pair<int, int> &point) {
+void GameState::move_knight_towards_point(pair<int, int> &point,
+                                            string &move_order,
+                                            int &id) {
 
     fprintf(stderr, "Moving towards (%d, %d)\n", point.first, point.second);
-    string order = string(f_n_knights, 'X');
-    for(int i = 0; i < f_n_knights; i++) {
 
-        /*
-        int delta_x = point.first - f_knights[i].f_x;
-        int delta_y = point.second - f_knights[i].f_y;
-
-        fprintf(stderr, "delta_x: %d\n", delta_x);
-        fprintf(stderr, "delta_y: %d\n", delta_y);
-
-        if (delta_x > 0) {
-            order[i] = 'W'; // move right
-            f_knights[i].f_x = f_knights[i].f_x + 1;
-            continue;
-        } else if (delta_x < 0) {
-            order[i] = 'E'; // move left
-            f_knights[i].f_x = f_knights[i].f_x - 1;
-            continue;
-        } else if (delta_y > 0) {
-            order[i] = 'S'; //move down
-            f_knights[i].f_y = f_knights[i].f_y + 1;
-            continue;
-        } else if (delta_y < 0) {
-            order[i] = 'N'; //move up
-            f_knights[i].f_y = f_knights[i].f_y - 1;
-            continue;
-        }
-
-        if (delta_x == 0 && delta_y == 0)
-            order[i] = 'R';
-        */
-
-        fprintf(stderr, "point.first: %d; f_knights[i].f_x: %d\n", point.first, f_knights[i].f_x);
-
-        if (point.first > f_knights[i].f_x) {
-            order[i] = 'E'; // move right
-            f_knights[i].f_x = f_knights[i].f_x + 1;
-            continue;
-        } else if (point.first < f_knights[i].f_x) {
-            order[i] = 'W'; // move left
-            f_knights[i].f_x = f_knights[i].f_x - 1;
-            continue;
-        } else if (point.second > f_knights[i].f_y) {
-            order[i] = 'S'; // move left
-            f_knights[i].f_y = f_knights[i].f_y + 1;
-            continue;
-        } else if (point.second < f_knights[i].f_y) {
-            order[i] = 'N'; // move left
-            f_knights[i].f_y = f_knights[i].f_y - 1;
-            continue;
-        }
-
-
+    if (point.first > f_knights[id].f_x) {
+        move_order[id] = 'E'; // move right
+        f_knights[id].f_x = f_knights[id].f_x + 1;
+    } else if (point.first < f_knights[id].f_x) {
+        move_order[id] = 'W'; // move left
+        f_knights[id].f_x = f_knights[id].f_x - 1;
+    } else if (point.second > f_knights[id].f_y) {
+        move_order[id] = 'S'; // move left
+        f_knights[id].f_y = f_knights[id].f_y + 1;
+    } else if (point.second < f_knights[id].f_y) {
+        move_order[id] = 'N'; // move left
+        f_knights[id].f_y = f_knights[id].f_y - 1;
     }
 
-    return order;
 }
 
+
+void GameState::move_towards_point(pair<int, int> &point, string &move_order) {
+
+    //fprintf(stderr, "Moving towards (%d, %d)\n", point.first, point.second);
+    for(int i = 0; i < f_n_knights; i++)
+        move_knight_towards_point(point, move_order, i);
+
+}
+
+
+bool GameState::princess_cm_reached(pair<int, int> &cm_point) {
+
+    // When ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS is issued all
+    // knights should move towards it. It is enough to check
+    // just one.
+    // This function should be executed only durring ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS
+    if (f_current_global_order_name != "ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS") {
+        cerr << "princess_cm_reached executed not durring ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS" << endl;
+        assert(false);
+    }
+
+
+    if (cm_point.first == f_knights[0].f_x && cm_point.second == f_knights[0].f_y) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+bool GameState::check_if_knight_reached_princess_cm(pair<int, int> &cm_point, int &id) {
+
+    if (cm_point.first == f_knights[id].f_x && cm_point.second == f_knights[id].f_y) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+bool GameState::check_if_all_knights_reached_princess_cm(pair<int, int> &cm_point) {
+
+    for(int i = 0; i < f_n_knights; i++)
+        if (cm_point.first != f_knights[i].f_x && cm_point.second != f_knights[i].f_y)
+            return false;
+
+    return true;
+}
+
+
+
+void GameState::send_global_order(string &order) {
+    cerr << "Sending order: " << order << endl;
+    f_current_global_order_name = order;
+
+}
+
+
+void GameState::send_order_to_all_knights(string &order) {
+
+    for(int i = 0; i < f_n_knights; i++)
+        f_knights[i].f_order = order;
+
+
+}
+
+
+void GameState::send_order_to_a_fraction_of_knights(string &order, double &fraction) {
+
+    int n = int(fraction*f_n_knights);
+    int index = 0;
+
+    for(int i = f_n_knights - 1; i >= 0; i--) {
+
+        if (index == n)
+            break;
+
+        if (f_knights[i].f_n_p < 0)
+            continue;
+
+        f_knights[i].f_order = order;
+        index++;
+    }
+}
+
+
+void GameState::random_disperse(string &move_order) {
+
+    for(int i = 0; i < f_n_knights; i++) {
+        if (f_knights[i].f_n_p < 0)
+            continue;
+
+        if (f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
+
+            int move_id = rand() % 4;
+
+            move_order[i] = f_moves[move_id];
+            // NEWS
+            if (move_id == 0)
+                f_knights[i].f_y = f_knights[i].f_y - 1;
+            else if (move_id == 1)
+                f_knights[i].f_x = f_knights[i].f_x + 1;
+            else if (move_id == 2)
+                f_knights[i].f_x = f_knights[i].f_x - 1;
+            else if (move_id == 3)
+                f_knights[i].f_y = f_knights[i].f_y + 1;
+
+        }
+    }
+}
+
+
+void GameState::check_and_set_princess_escort_during_random_disperse(string &move_order) {
+
+    for(int i = 0; i < f_n_knights; i++) {
+
+        if (f_knights[i].f_n_p < 0)
+            continue;
+
+        if (f_knights[i].f_order == "ORDER_RETURN_TO_GLOBAL_ASSEMBLY_POINT") {
+            move_knight_towards_point(f_global_assembly_point, move_order, i);
+
+            bool reached_cm = check_if_knight_reached_princess_cm(f_global_assembly_point, i)  ;          
+            if (reached_cm == true)
+                f_knights[i].f_order = "ORDER_RANDOM_PRINCESS_SEARCH";
+
+
+        } else if (f_knights[i].f_n_p > 0 && f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
+            f_knights[i].f_order = "ORDER_RETURN_TO_GLOBAL_ASSEMBLY_POINT";
+            move_knight_towards_point(f_global_assembly_point, move_order, i);
+
+            bool reached_cm = check_if_knight_reached_princess_cm(f_global_assembly_point, i)  ;          
+            if (reached_cm == true)
+                f_knights[i].f_order = "ORDER_RANDOM_PRINCESS_SEARCH";
+
+        } else if (f_knights[i].f_n_p == 0 && f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
+
+            int move_id = rand() % 4;
+
+            move_order[i] = f_moves[move_id];
+            // NEWS
+            if (move_id == 0)
+                f_knights[i].f_y = f_knights[i].f_y - 1;
+            else if (move_id == 1)
+                f_knights[i].f_x = f_knights[i].f_x + 1;
+            else if (move_id == 2)
+                f_knights[i].f_x = f_knights[i].f_x - 1;
+            else if (move_id == 3)
+                f_knights[i].f_y = f_knights[i].f_y + 1;
+
+        }
+    }
+}
 
 // --------------------------------------------
 // --------  PrincessesAndMonsters  -----------
@@ -481,8 +636,8 @@ string PrincessesAndMonsters::initialize(int S, vector<int> princesses, vector<i
     f_gs.print_groups();
 
 
-    f_gs.global_assembly_point = f_gs.princess_center_of_mass();
-    char closest_entrence_index = f_gs.princess_cm_closest_entrence(f_gs.global_assembly_point);
+    f_gs.f_global_assembly_point = f_gs.princess_center_of_mass();
+    char closest_entrence_index = f_gs.princess_cm_closest_entrence(f_gs.f_global_assembly_point);
 
 
     pair<int, int> ikp = make_pair(0, 0); // initial knights position
@@ -503,8 +658,12 @@ string PrincessesAndMonsters::initialize(int S, vector<int> princesses, vector<i
         cerr << "Unknown entrance!" << endl;
     }
 
-    f_gs.update_knight_positions(ikp);
-    f_gs.current_order_name = "PRINCESS_CENTER_OF_MASS";
+    f_gs.update_initial_knight_positions(ikp);
+    // f_gs.current_order_name = "PRINCESS_CENTER_OF_MASS";
+
+    string order = "ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS";    
+    f_gs.send_global_order(order);
+    f_gs.send_order_to_all_knights(order);
 
 
     srand(1234);
@@ -522,19 +681,70 @@ string PrincessesAndMonsters::move(vector<int> status, int P, int M, int timeLef
     f_t++;
 
     f_turn++;
+    int n_knights = status.size();
     fprintf(stderr, "Turn: %d\n", f_turn);
+    f_gs.update_knights_number_of_princesses(status);
+    f_gs.print_knights();
+
+    int n_escorted_princesses = f_gs.get_number_of_escorted_princesses_at_cm(f_gs.f_global_assembly_point);
+    cerr << "Total number of princesses: " << P << "; Escorted princesses at cm: " << n_escorted_princesses << endl;
+
+    if (P == n_escorted_princesses && f_gs.f_current_global_order_name != "ORDER_FINAL_RETURN_TO_GLOBAL_ASSEMBLY_POINT") {
+        string global_order = "ORDER_FINAL_RETURN_TO_GLOBAL_ASSEMBLY_POINT";
+        f_gs.send_global_order(global_order);
+        f_gs.send_order_to_all_knights(global_order);
+    }
 
 
-    if (f_gs.current_order_name == "PRINCESS_CENTER_OF_MASS") {
-        string order = f_gs.move_towards_point(f_gs.global_assembly_point);
-        cerr << "Current move order: " << order << endl;
-        return order;
+
+    string move_order = string(n_knights, 'X');
+    if (f_gs.f_current_global_order_name == "ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS") {
+        f_gs.move_towards_point(f_gs.f_global_assembly_point, move_order); 
+        cerr << "ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS - Current move order: " << move_order << endl;
+
+        bool cm_reached = f_gs.princess_cm_reached(f_gs.f_global_assembly_point);
+        if (cm_reached == true) {
+            string order = "ORDER_RANDOM_PRINCESS_SEARCH";
+            f_gs.send_global_order(order);
+            //f_gs.send_order_to_all_knights(order);
+            // Fraction of knights that will search for princesses.            
+            double fraction = 0.4;
+            f_gs.send_order_to_a_fraction_of_knights(order, fraction);        
+        }
+        return move_order;
+
+
+    } else if (f_gs.f_current_global_order_name == "ORDER_RANDOM_PRINCESS_SEARCH") {
+        f_gs.check_and_set_princess_escort_during_random_disperse(move_order);
+        //f_gs.random_disperse(move_order);
+        
+        cerr << "ORDER_RANDOM_PRINCESS_SEARCH - Current move order: " << move_order << endl;
+        return move_order;
+
+
+    } else if (f_gs.f_current_global_order_name == "ORDER_FINAL_RETURN_TO_GLOBAL_ASSEMBLY_POINT") {
+        
+        f_gs.move_towards_point(f_gs.f_global_assembly_point, move_order);
+        cerr << "ORDER_FINAL_RETURN_TO_GLOBAL_ASSEMBLY_POINT - Current move order: " << move_order << endl;
+
+        bool cm_reached = f_gs.check_if_all_knights_reached_princess_cm(f_gs.f_global_assembly_point);
+        if (cm_reached == true) {
+            string global_order = "ORDER_DO_NOTHING";
+            f_gs.send_global_order(global_order);
+            f_gs.send_order_to_all_knights(global_order);
+        }
+        return move_order;
+
+
+    } else if (f_gs.f_current_global_order_name == "ORDER_DO_NOTHING") {
+
+        cerr << "ORDER_DO_NOTHING - Current move order: " << move_order << endl;
     }
     
 
 
 
-    return string(status.size(), f_t < 3 ? 'E' : f_t < 20 ? 'S' : f_dir[rand() % 4]);
+    return move_order;
 }
 
 
