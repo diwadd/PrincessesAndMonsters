@@ -34,7 +34,7 @@ class Knight {
 
 
 ostream & operator<<(ostream & os, const Knight &k){
-    os << "KnightObject - Description: id: " << k.f_id << " at (" << k.f_x << "," << k.f_y << ")  in state: " << k.f_n_p;
+    os << "KnightObject - Description: id: " << k.f_id << " at (" << k.f_x << "," << k.f_y << ")  in state: " << k.f_n_p << " order: " << k.f_order;
     return os;
 }
 
@@ -415,17 +415,29 @@ void GameState::move_knight_towards_point(pair<int, int> &point,
     fprintf(stderr, "Moving towards (%d, %d)\n", point.first, point.second);
 
     if (point.first > f_knights[id].f_x) {
+
         move_order[id] = 'E'; // move right
-        f_knights[id].f_x = f_knights[id].f_x + 1;
+        if (f_knights[id].f_x < f_S - 1) 
+            f_knights[id].f_x = f_knights[id].f_x + 1;
+
     } else if (point.first < f_knights[id].f_x) {
+
         move_order[id] = 'W'; // move left
-        f_knights[id].f_x = f_knights[id].f_x - 1;
+        if (f_knights[id].f_x > 0) 
+            f_knights[id].f_x = f_knights[id].f_x - 1;
+
     } else if (point.second > f_knights[id].f_y) {
+
         move_order[id] = 'S'; // move left
-        f_knights[id].f_y = f_knights[id].f_y + 1;
+        if (f_knights[id].f_y < f_S - 1) 
+            f_knights[id].f_y = f_knights[id].f_y + 1;
+
     } else if (point.second < f_knights[id].f_y) {
+
         move_order[id] = 'N'; // move left
-        f_knights[id].f_y = f_knights[id].f_y - 1;
+        if (f_knights[id].f_y > 0) 
+            f_knights[id].f_y = f_knights[id].f_y - 1;
+
     }
 
 }
@@ -526,16 +538,32 @@ void GameState::random_disperse(string &move_order) {
 
             int move_id = rand() % 4;
 
-            move_order[i] = f_moves[move_id];
             // NEWS
-            if (move_id == 0)
-                f_knights[i].f_y = f_knights[i].f_y - 1;
-            else if (move_id == 1)
-                f_knights[i].f_x = f_knights[i].f_x + 1;
-            else if (move_id == 2)
-                f_knights[i].f_x = f_knights[i].f_x - 1;
-            else if (move_id == 3)
-                f_knights[i].f_y = f_knights[i].f_y + 1;
+            if (move_id == 0) {
+
+                if (f_knights[i].f_y > 0) {
+                    f_knights[i].f_y = f_knights[i].f_y - 1;
+                    move_order[i] = f_moves[move_id];
+                }
+            } else if (move_id == 1) {
+
+                if (f_knights[i].f_x < f_S - 1) {
+                    f_knights[i].f_x = f_knights[i].f_x + 1;
+                    move_order[i] = f_moves[move_id];
+                }
+            } else if (move_id == 2) {
+
+                if (f_knights[i].f_x > 0) {
+                    f_knights[i].f_x = f_knights[i].f_x - 1;
+                    move_order[i] = f_moves[move_id];
+                }
+            } else if (move_id == 3) {
+
+                if (f_knights[i].f_y < f_S - 1) {
+                    f_knights[i].f_y = f_knights[i].f_y + 1;
+                    move_order[i] = f_moves[move_id];
+                }
+            }
 
         }
     }
@@ -555,7 +583,7 @@ void GameState::check_and_set_princess_escort_during_random_disperse(string &mov
             bool reached_cm = check_if_knight_reached_princess_cm(f_global_assembly_point, i)  ;          
             if (reached_cm == true)
                 f_knights[i].f_order = "ORDER_RANDOM_PRINCESS_SEARCH";
-
+            continue;
 
         } else if (f_knights[i].f_n_p > 0 && f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
             f_knights[i].f_order = "ORDER_RETURN_TO_GLOBAL_ASSEMBLY_POINT";
@@ -564,6 +592,7 @@ void GameState::check_and_set_princess_escort_during_random_disperse(string &mov
             bool reached_cm = check_if_knight_reached_princess_cm(f_global_assembly_point, i)  ;          
             if (reached_cm == true)
                 f_knights[i].f_order = "ORDER_RANDOM_PRINCESS_SEARCH";
+            continue;
 
         } else if (f_knights[i].f_n_p == 0 && f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
 
@@ -571,15 +600,28 @@ void GameState::check_and_set_princess_escort_during_random_disperse(string &mov
 
             move_order[i] = f_moves[move_id];
             // NEWS
-            if (move_id == 0)
-                f_knights[i].f_y = f_knights[i].f_y - 1;
-            else if (move_id == 1)
-                f_knights[i].f_x = f_knights[i].f_x + 1;
-            else if (move_id == 2)
-                f_knights[i].f_x = f_knights[i].f_x - 1;
-            else if (move_id == 3)
-                f_knights[i].f_y = f_knights[i].f_y + 1;
+            if (move_id == 0) {
 
+                if (f_knights[i].f_y > 0) {
+                    f_knights[i].f_y = f_knights[i].f_y - 1;
+                }
+            } else if (move_id == 1) {
+
+                if (f_knights[i].f_x < f_S - 1) {
+                    f_knights[i].f_x = f_knights[i].f_x + 1;
+                }
+            } else if (move_id == 2) {
+
+                if (f_knights[i].f_x > 0) {
+                    f_knights[i].f_x = f_knights[i].f_x - 1;
+                }
+            } else if (move_id == 3) {
+
+                if (f_knights[i].f_y < f_S - 1) {
+                    f_knights[i].f_y = f_knights[i].f_y + 1;
+                }
+            }
+            continue;
         }
     }
 }
@@ -696,7 +738,6 @@ string PrincessesAndMonsters::move(vector<int> status, int P, int M, int timeLef
     }
 
 
-
     string move_order = string(n_knights, 'X');
     if (f_gs.f_current_global_order_name == "ORDER_MOVE_TO_PRINCESS_CENTER_OF_MASS") {
         f_gs.move_towards_point(f_gs.f_global_assembly_point, move_order); 
@@ -708,7 +749,7 @@ string PrincessesAndMonsters::move(vector<int> status, int P, int M, int timeLef
             f_gs.send_global_order(order);
             //f_gs.send_order_to_all_knights(order);
             // Fraction of knights that will search for princesses.            
-            double fraction = 0.4;
+            double fraction = 0.5;
             f_gs.send_order_to_a_fraction_of_knights(order, fraction);        
         }
         return move_order;
@@ -741,7 +782,6 @@ string PrincessesAndMonsters::move(vector<int> status, int P, int M, int timeLef
         cerr << "ORDER_DO_NOTHING - Current move order: " << move_order << endl;
     }
     
-
 
 
     return move_order;
