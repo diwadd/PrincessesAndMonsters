@@ -6,6 +6,7 @@
 #include <cassert>
 #include <algorithm>
 #include <random>
+#include <cmath>
 
 using namespace std;
 
@@ -157,7 +158,8 @@ class GameState {
 
         GameState();
 
-        int _distance_from_point(pair<int, int> &point, int &x, int &y);
+        int _manhatan_distance_from_point(pair<int, int> &point, int &x, int &y);
+        double _euclidean_distance_from_point(pair<int, int> &point, int &x, int &y);
 
         void set_S(int &S) {f_S = S;}
 
@@ -184,6 +186,7 @@ class GameState {
 
         string move_towards_point(pair<int, int> &point);
         void move_towards_point(pair<int, int> &point, string &move_order);
+        void move_diagonally_knight_towards_point(pair<int, int> &point, string &move_order, int &id);
         void move_knight_towards_point(pair<int, int> &point, string &move_order, int &id);
         bool princess_cm_reached(pair<int, int> &cm_point);
         bool check_if_knight_reached_princess_cm(pair<int, int> &cm_point, int &id);
@@ -211,9 +214,19 @@ GameState::GameState() {
 }
 
 
-int GameState::_distance_from_point(pair<int, int> &point, int &x, int &y) {
+int GameState::_manhatan_distance_from_point(pair<int, int> &point, int &x, int &y) {
 
     return abs(point.first - x) + abs(point.second - y);
+}
+
+
+double GameState::_euclidean_distance_from_point(pair<int, int> &point, int &x, int &y) {
+
+    double dx = point.first - x;
+    double dy = point.second - y;
+
+    return sqrt(dx*dx + dy*dy);
+
 }
 
 
@@ -495,12 +508,94 @@ void GameState::move_knight_towards_point(pair<int, int> &point,
 }
 
 
+void GameState::move_diagonally_knight_towards_point(pair<int, int> &point,
+                                                     string &move_order,
+                                                     int &id) {
+
+
+    if (point.first == f_knights[id].f_x && point.second == f_knights[id].f_y)
+        return;
+
+    int x0 = f_knights[id].f_x;
+    int y0 = f_knights[id].f_y - 1;
+
+    if (y0 < 0)
+        y0 = 0;
+
+    int x1 = f_knights[id].f_x + 1;
+    int y1 = f_knights[id].f_y;
+
+    if (x1 > f_S - 1)
+        x1 = f_S - 1;
+
+    int x2 = f_knights[id].f_x - 1;
+    int y2 = f_knights[id].f_y;
+
+    if (x2 < 0)
+        x2 = 0;
+
+    int x3 = f_knights[id].f_x;
+    int y3 = f_knights[id].f_y + 1;
+
+    if (y3 > f_S - 1)
+        y3 = f_S - 1;
+
+    double x0d = _euclidean_distance_from_point(point, x0, y0);
+    double x1d = _euclidean_distance_from_point(point, x1, y1);
+    double x2d = _euclidean_distance_from_point(point, x2, y2);
+    double x3d = _euclidean_distance_from_point(point, x3, y3);
+    
+    // Find smallest distance to point.
+    vector<double> vec{x0d, x1d, x2d, x3d};
+    vector<double>::iterator result = min_element(begin(vec), end(vec));
+    int move_id = distance(begin(vec), result);
+
+    #if PRINT_DEBUG == 1
+    fprintf(stderr, "x0 %d; y0 %d; x1 %d; y1 %d; x2 %d; y2 %d; x3 %d; y3 %d;\n", x0, y0, x1, y1, x2, y2, x3, y3);    
+    fprintf(stderr, "point.x %d; point.y: %d; x0d: %f; x1d: %f; x2d: %f; x3d: %f\n", point.first, point.second, x0d, x1d, x2d, x3d);
+    fprintf(stderr, "move_id: %d\n", move_id);
+    #endif
+
+    move_order[id] = f_moves[move_id];
+    if (move_id == 0) {
+
+        if (f_knights[id].f_y > 0) {
+            f_knights[id].f_y = f_knights[id].f_y - 1;
+
+        }
+    } else if (move_id == 1) {
+
+        if (f_knights[id].f_x < f_S - 1) {
+            f_knights[id].f_x = f_knights[id].f_x + 1;
+
+        }
+    } else if (move_id == 2) {
+
+        if (f_knights[id].f_x > 0) {
+            f_knights[id].f_x = f_knights[id].f_x - 1;
+
+        }
+    } else if (move_id == 3) {
+
+        if (f_knights[id].f_y < f_S - 1) {
+            f_knights[id].f_y = f_knights[id].f_y + 1;
+
+        }
+    }
+
+
+
+}
+
+
+
 void GameState::move_towards_point(pair<int, int> &point, string &move_order) {
 
     //fprintf(stderr, "Moving towards (%d, %d)\n", point.first, point.second);
-    for(int i = 0; i < f_n_knights; i++)
-        move_knight_towards_point(point, move_order, i);
-
+    for(int i = 0; i < f_n_knights; i++) {
+        //move_knight_towards_point(point, move_order, i);
+        move_diagonally_knight_towards_point(point, move_order, i);
+    }
 }
 
 
@@ -623,25 +718,37 @@ void GameState::repulsive_random_disperse_the_ith_knights(string &move_order, in
     //int x = f_knights[i].f_x;
     //int y = f_knights[i].f_y;
 
-    //int d = _distance_from_point(f_global_assembly_point, x, y);
+    //int d = _manhatan_distance_from_point(f_global_assembly_point, x, y);
 
     int x0 = f_knights[i].f_x;
     int y0 = f_knights[i].f_y - 1;
 
+    if (y0 < 0)
+        y0 = 0;
+
     int x1 = f_knights[i].f_x + 1;
     int y1 = f_knights[i].f_y;
+
+    if (x1 > f_S - 1)
+        x1 = f_S - 1;
 
     int x2 = f_knights[i].f_x - 1;
     int y2 = f_knights[i].f_y;
 
+    if (x2 < 0)
+        x2 = 0;
+
     int x3 = f_knights[i].f_x;
     int y3 = f_knights[i].f_y + 1;
 
+    if (y3 > f_S - 1)
+        y3 = f_S - 1;
 
-    int d0 = _distance_from_point(f_global_assembly_point, x0, y0);
-    int d1 = _distance_from_point(f_global_assembly_point, x1, y1);
-    int d2 = _distance_from_point(f_global_assembly_point, x2, y2);
-    int d3 = _distance_from_point(f_global_assembly_point, x3, y3);
+
+    int d0 = _manhatan_distance_from_point(f_global_assembly_point, x0, y0);
+    int d1 = _manhatan_distance_from_point(f_global_assembly_point, x1, y1);
+    int d2 = _manhatan_distance_from_point(f_global_assembly_point, x2, y2);
+    int d3 = _manhatan_distance_from_point(f_global_assembly_point, x3, y3);
 
     double s_sum = d0 + d1 + d2 + d3;
     
@@ -706,10 +813,7 @@ void GameState::check_and_set_princess_escort_during_random_disperse(string &mov
             continue;
 
         } else if (f_knights[i].f_n_p == 0 && f_knights[i].f_order == "ORDER_RANDOM_PRINCESS_SEARCH") {
-
-            random_disperse_the_ith_knights(move_order, i);
-            //repulsive_random_disperse_the_ith_knights(move_order, i);
-
+            repulsive_random_disperse_the_ith_knights(move_order, i);
             continue;
         }
     }
